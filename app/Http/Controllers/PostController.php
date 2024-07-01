@@ -43,12 +43,16 @@ class PostController extends Controller
     public function update(UpdatePostRequest $request, Post $post)
     {
         $this->authorize('update', $post);
-
+    
         try {
-            $post = $this->postService->updatePost($post, $request->validated());
-            return response()->json($post);
+            $result = $this->postService->updatePost($post, $request->validated());
+            return response()->json([
+                'message' => 'Post updated successfully',
+                'post' => $result['post'],
+                'external' => $result['external'],
+            ]);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Ошибка редактирования'], 500);
+            return response()->json(['error' => 'Ошибка редактирования', 'details' => $e->getMessage()], 500);
         }
     }
 

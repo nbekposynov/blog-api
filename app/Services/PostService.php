@@ -38,22 +38,18 @@ use Illuminate\Support\Facades\Log;
     public function createPost(array $data, $userId)
     {
         return DB::transaction(function () use ($data, $userId) {
-            // Сначала создаем пост локально
+
             $post = Post::create([
                 'user_id' => $userId,
-                'dummy_post_id' => 0, // временное значение
-                'title' => $data['title'],
-                'body' => $data['body'],
+                'dummy_post_id' => 0, 
             ]);
 
-            // Создаем пост на стороне API и получаем dummy_post_id
             $dummyPostResponse = Http::post("https://dummyjson.com/posts/add", [
-                'userId' => $userId, // предполагаем, что API принимает userId
+                'userId' => $userId,
                 'title' => $data['title'],
                 'body' => $data['body'],
             ])->json();
 
-            // Обновляем dummy_post_id в локальной базе данных
             $post->dummy_post_id = $post->id;
             $post->save();
 
@@ -64,28 +60,40 @@ use Illuminate\Support\Facades\Log;
     public function updatePost(Post $post, array $data)
     {
         return DB::transaction(function () use ($post, $data) {
-            // Обновляем пост локально
             $post->update($data);
-
-            // Опционально обновляем пост на стороне API
-            $response = Http::put("https://dummyjson.com/posts/{$post->dummy_post_id}", [
-                'title' => $data['title'],
-                'body' => $data['body'],
-            ]);
-
-            // Логирование ответа
-            Log::info("Updated dummy post", ['response' => $response->json()]);
-
-            return $post;
+            try {
+                $response = Http::put("https://dummyjson.com/posts/{$post->dummy_post_id}", [
+                    'title' => $data['title'],
+                    'body' => $data['body'],
+                ]);
+    
+                Log::info('API Response', ['response' => $response->json()]);
+    
+                if ($response->successful()) {
+                    $responseData = $response->json();
+                    Log::info('Пост API успешно обновлен', ['post_id' => $post->id]);
+                    return [
+                        'post' => $post,
+                        'external' => [
+                            'title' => $responseData['title'],
+                            'body' => $responseData['body']
+                        ],
+                    ];
+                } else {
+                    Log::warning('Ошибка обновления внешнего API', ['post_id' => $post->id, 'response' => $response->json()]);
+                    throw new \Exception('Ошибка обновления внешнего API');
+                }
+            } catch (\Exception $e) {
+                Log::error('Ошибка обновления внешнего API', ['post_id' => $post->id, 'error' => $e->getMessage()]);
+                throw $e; 
+            }
         });
     }
 
     public function deletePost(Post $post)
     {
-        // Удаляем пост локально
         $post->delete();
 
-        // Опционально удаляем пост на стороне API
         Http::delete("https://dummyjson.com/posts/{$post->dummy_post_id}");
     }
 }
