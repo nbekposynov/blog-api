@@ -31,7 +31,7 @@ class PostController extends Controller
     {
         try {
             $user = Auth::user();
-            $posts = $request->validated()['posts']; // Получаем массив постов
+            $posts = $request->validated()['posts']; 
             $createdPosts = [];
     
             foreach ($posts as $postData) {
