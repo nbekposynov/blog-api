@@ -8,22 +8,25 @@ class StorePostRequest extends FormRequest
 {
     public function authorize()
     {
-        return true; // Убедитесь, что авторизация разрешена
+        return true; 
     }
 
     public function rules()
     {
         return [
-            'title' => 'required|string|max:255',
-            'body' => 'required|string',
+            'posts' => 'required|array',
+            'posts.*.title' => 'required|string|max:255',
+            'posts.*.body' => 'required|string',
         ];
     }
 
     public function messages()
     {
         return [
-            'title.required' => 'Title is required',
-            'body.required' => 'Body is required',
+            'posts.required' => 'Данные постов обязательны!',
+            'posts.array' => 'Пост должен быть массивом',
+            'posts.*.title.required' => 'Заголовок обязателен',
+            'posts.*.body.required' => 'Описание обязательно',
         ];
     }
 }

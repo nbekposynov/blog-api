@@ -8,22 +8,26 @@ class UpdatePostRequest extends FormRequest
 {
     public function authorize()
     {
-        return true; // Убедитесь, что авторизация разрешена
+        return true; 
     }
 
     public function rules()
     {
         return [
-            'title' => 'sometimes|string|max:255',
-            'body' => 'sometimes|string',
+            'posts' => 'required|array',
+            'posts.*.title' => 'required|string|max:255',
+            'posts.*.body' => 'required|string',
+            'posts.*.dummy_post_id' => 'nullable|integer',
         ];
     }
 
     public function messages()
     {
         return [
-            'title.sometimes' => 'Название обязательно',
-            'body.sometimes' => 'Описание обязательно',
+            'posts.required' => 'Данные постов обязательны для заполнения!',
+            'posts.array' => 'Пост должен быть массивом',
+            'posts.*.title.required' => 'Заголовок обязателен',
+            'posts.*.body.required' => 'Описание обязательно',
         ];
     }
 }

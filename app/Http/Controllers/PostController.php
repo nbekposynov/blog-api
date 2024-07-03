@@ -2,18 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Contracts\PostInterface;
 use App\Http\Requests\StorePostRequest;
 use App\Http\Requests\UpdatePostRequest;
 use App\Services\PostService;
 use App\Models\Post;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-
 class PostController extends Controller
 {
     protected $postService;
-
-    public function __construct(PostService $postService)
+    public function __construct(PostInterface $postService)
     {
         $this->postService = $postService;
     }
@@ -30,27 +29,45 @@ class PostController extends Controller
 
     public function store(StorePostRequest $request)
     {
-
         try {
             $user = Auth::user();
-            $post = $this->postService->createPost($request->validated(), $user->id);
-            return response()->json($post, 201);
+            $posts = $request->validated()['posts']; // Получаем массив постов
+            $createdPosts = [];
+    
+            foreach ($posts as $postData) {
+                $createdPosts[] = $this->postService->createPost($postData, $user->id);
+            }
+    
+            return response()->json($createdPosts, 201);
         } catch (\Exception $e) {
             return response()->json(['error' => 'Ошибка при создании поста', 'details' => $e->getMessage()], 500);
         }
     }
 
-    public function update(UpdatePostRequest $request, Post $post)
+    public function update(UpdatePostRequest $request, $id)
     {
-        $this->authorize('update', $post);
-    
         try {
-            $result = $this->postService->updatePost($post, $request->validated());
-            return response()->json([
-                'message' => 'Post updated successfully',
-                'post' => $result['post'],
-                'external' => $result['external'],
-            ]);
+            $postsData = $request->validated()['posts']; 
+            $updatedPosts = [];
+            
+            $post = Post::find($id);
+    
+            if (!$post) {
+                return response()->json(['error' => 'Пост не найден'], 404);
+            }
+    
+            $this->authorize('update', $post);
+    
+            foreach ($postsData as $postData) {
+                $result = $this->postService->updatePost($post, $postData);
+                $updatedPosts[] = [
+                    'message' => 'Пост успешно обновлен',
+                    'post' => $result['post'],
+                    'external' => $result['external'],
+                ];
+            }
+    
+            return response()->json($updatedPosts, 200);
         } catch (\Exception $e) {
             return response()->json(['error' => 'Ошибка редактирования', 'details' => $e->getMessage()], 500);
         }

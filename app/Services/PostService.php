@@ -2,22 +2,31 @@
 
 namespace App\Services;
 
+use App\Contracts\PostInterface;
 use App\Models\Post;
 use App\Models\User;
+use App\Repositories\PostRepository;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-
-    class PostService
+    class PostService implements PostInterface
 {
+    protected $postRepository;
+    protected $apiGateway;
+
+    public function __construct(PostRepository $postRepository, DummyJsonApiGateway $apiGateway)
+    {
+        $this->postRepository = $postRepository;
+        $this->apiGateway = $apiGateway;
+    }
+
     public function getPosts()
     {
-        $posts = Post::paginate(10);
+        $posts = $this->postRepository->paginate(10);
     
         $transformedPosts = $posts->getCollection()->transform(function ($post) {
-            $dummyPost = Http::get("https://dummyjson.com/posts/{$post->dummy_post_id}")->json();
+            $dummyPost = $this->apiGateway->getPost($post->dummy_post_id);
     
             $body = Str::limit($dummyPost['body'], 128);
     
@@ -37,32 +46,29 @@ use Illuminate\Support\Facades\Log;
 
     public function createPost(array $data, $userId)
     {
-        return DB::transaction(function () use ($data, $userId) {
+        $post = $this->postRepository->create([
+            'user_id' => $userId,
+            'dummy_post_id' => 0, 
+        ]);
 
-            $post = Post::create([
-                'user_id' => $userId,
-                'dummy_post_id' => 0, 
-            ]);
+        $dummyPostResponse = $this->apiGateway->createPost([
+            'userId' => $userId,
+            'title' => $data['title'],
+            'body' => $data['body'],
+        ]);
 
-            $dummyPostResponse = Http::post("https://dummyjson.com/posts/add", [
-                'userId' => $userId,
-                'title' => $data['title'],
-                'body' => $data['body'],
-            ])->json();
+        $post->dummy_post_id = $post['id'];
+        $post->save();
 
-            $post->dummy_post_id = $post->id;
-            $post->save();
-
-            return $post;
-        });
+        return $post;
     }
 
     public function updatePost(Post $post, array $data)
     {
-        return DB::transaction(function () use ($post, $data) {
-            $post->update($data);
+        $this->postRepository->update($post, $data);
+
             try {
-                $response = Http::put("https://dummyjson.com/posts/{$post->dummy_post_id}", [
+                $response = $this->apiGateway->updatePost($post->dummy_post_id, [
                     'title' => $data['title'],
                     'body' => $data['body'],
                 ]);
@@ -87,13 +93,11 @@ use Illuminate\Support\Facades\Log;
                 Log::error('Ошибка обновления внешнего API', ['post_id' => $post->id, 'error' => $e->getMessage()]);
                 throw $e; 
             }
-        });
-    }
+        }
 
     public function deletePost(Post $post)
     {
-        $post->delete();
-
-        Http::delete("https://dummyjson.com/posts/{$post->dummy_post_id}");
+        $this->postRepository->delete($post);
+        $this->apiGateway->deletePost($post->dummy_post_id);
     }
 }

@@ -1,11 +1,12 @@
 <?php
 namespace App\Services;
 
+use App\Contracts\AuthInterface;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Tymon\JWTAuth\Facades\JWTAuth;
 
-class AuthService
+class AuthService implements AuthInterface
 {
     public function register(array $data)
     {
