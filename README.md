@@ -16,7 +16,7 @@
 
     ```sh
     git clone https://github.com/nbekposynov/blog-api.git
-    cd your-repo-name
+    cd blog-api
     ```
 
 2. **Установите зависимости:**
